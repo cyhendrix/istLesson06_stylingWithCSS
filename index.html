@@ -75,7 +75,98 @@ const ruleLines=['p {','  color: maroon;','}'];let selected=null;
 function buildRule(){selected=null;$('ruleSlots').innerHTML='';$('ruleBank').innerHTML='';['Line 1','Line 2','Line 3'].forEach(label=>{const s=document.createElement('div');s.className='slot';s.dataset.label=label;s.draggable=false;s.ondragover=e=>e.preventDefault();s.ondrop=e=>{e.preventDefault();placeRule(e.dataTransfer.getData('text'),s)};s.onclick=()=>{if(selected)placeRule(selected.dataset.code,s);else if(s.dataset.code)clearRule(s)};$('ruleSlots').append(s)});shuffle(ruleLines).forEach(code=>{const t=document.createElement('div');t.className='tile';t.textContent=code;t.dataset.code=code;t.draggable=true;t.ondragstart=e=>e.dataTransfer.setData('text',code);t.onclick=()=>{$('ruleBank').querySelectorAll('.tile').forEach(x=>x.classList.remove('selected'));selected=t;t.classList.add('selected')};$('ruleBank').append(t)});$('ruleBank').ondragover=e=>e.preventDefault();$('ruleBank').ondrop=e=>{e.preventDefault();returnRule(e.dataTransfer.getData('text'))};$('ruleFeedback').className='feedback';$('toProperties').classList.add('hidden')}
 function clearRule(s){const code=s.dataset.code;s.dataset.code='';s.textContent='';s.draggable=false;s.classList.remove('filled');const t=[...$('ruleBank').children].find(x=>x.dataset.code===code);if(t)t.classList.remove('used')}function returnRule(code){[...$('ruleSlots').children].forEach(s=>{if(s.dataset.code===code)clearRule(s)});selected=null}function placeRule(code,s){if(!code)return;const source=[...$('ruleSlots').children].find(x=>x!==s&&x.dataset.code===code),old=s.dataset.code;if(source)clearRule(source);if(old&&old!==code){if(source)placeRule(old,source);else clearRule(s)}s.dataset.code=code;s.textContent=code;s.draggable=true;s.classList.add('filled');const t=[...$('ruleBank').children].find(x=>x.dataset.code===code);if(t)t.classList.add('used');selected=null;$('ruleBank').querySelectorAll('.tile').forEach(x=>x.classList.remove('selected'))}buildRule();$('resetRule').onclick=buildRule;$('checkRule').onclick=()=>{const a=[...$('ruleSlots').children].map(x=>x.dataset.code||'');if(a.every((x,i)=>x===ruleLines[i])){award('rule',20,20);feedback('ruleFeedback',true,'Correct! p is the selector, color is the property, and maroon is the value. +20 points');$('toProperties').classList.remove('hidden')}else feedback('ruleFeedback',false,'Keep working. The selector and opening brace come first, the declaration goes in the middle, and the closing brace comes last.')};$('toProperties').onclick=()=>openPanel('properties');
 
-const starterHTML=`<!DOCTYPE html>\n<html>\n<head>\n  <title>CSS Practice</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1>My Styled Page</h1>\n  <p>CSS changes how this text looks.</p>\n</body>\n</html>`;
+const starterHTML=`<!DOCTYPE html>\n<html>\n<head>\n  <title>CSS Practice</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1>My Styled Page</h1>\n  <p>CSS changes how this text looks.</p>\n
+<style id="practiceRecoveryStyles">
+.recovery-tools{background:#fff8dc;border:3px solid #f2c94c;border-radius:14px;padding:17px 20px;margin:20px 0;box-shadow:0 7px 20px #32134a18}
+.recovery-tools h3{margin:0 0 8px;color:#51217a}.recovery-tools p{margin:7px 0;line-height:1.45}
+.recovery-tools .recovery-buttons{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.recovery-tools button{border:2px solid #51217a;border-radius:9px;padding:11px 15px;background:#51217a;color:#fff;font-weight:800;cursor:pointer}
+.recovery-tools button.secondary{background:#fff;color:#51217a}.recovery-status{font-weight:800;margin-top:10px!important}
+</style>
+<section id="practiceRecoveryTools" class="recovery-tools">
+  <h3>Saved Work &amp; Grade Recovery</h3>
+  <p>Your name, class period, and typed answers save automatically on this computer and browser.</p>
+  <p>If a submitted grade does not appear in the score report, click <strong>Submit Grade Again</strong>.</p>
+  <div class="recovery-buttons">
+    <button id="retrySavedGrade" type="button">Submit Grade Again</button>
+    <button id="clearSavedPractice" class="secondary" type="button">Clear Saved Work</button>
+  </div>
+  <p id="practiceRecoveryStatus" class="recovery-status" role="status" aria-live="polite"></p>
+</section>
+<script id="practiceRecoveryScript">
+(function(){
+  const baseKey="istPractice:"+location.pathname;
+  const draftKey=baseKey+":draft", pendingKey=baseKey+":pending";
+  const status=()=>document.getElementById("practiceRecoveryStatus");
+  const retry=()=>document.getElementById("retrySavedGrade");
+  let submittedNow=false;
+  function fields(){
+    return [...document.querySelectorAll("input[id],select[id],textarea[id]")].filter(el=>el.type!=="hidden");
+  }
+  function saveDraft(){
+    const data={};
+    fields().forEach(el=>{
+      if(el.type==="radio"||el.type==="checkbox") data[el.id]={checked:el.checked};
+      else data[el.id]={value:el.value};
+    });
+    localStorage.setItem(draftKey,JSON.stringify(data));
+  }
+  function restoreDraft(root=document){
+    let data={};try{data=JSON.parse(localStorage.getItem(draftKey)||"{}")}catch(e){}
+    [...root.querySelectorAll("input[id],select[id],textarea[id]")].forEach(el=>{
+      const v=data[el.id];if(!v)return;
+      if(el.type==="radio"||el.type==="checkbox") el.checked=!!v.checked;
+      else if(!el.value||el.tagName==="TEXTAREA") el.value=v.value??"";
+    });
+  }
+  document.addEventListener("input",saveDraft);
+  document.addEventListener("change",saveDraft);
+  const observer=new MutationObserver(list=>list.forEach(m=>m.addedNodes.forEach(n=>{
+    if(n.nodeType===1)restoreDraft(n);
+  })));
+  observer.observe(document.documentElement,{childList:true,subtree:true});
+  const nativeSubmit=HTMLFormElement.prototype.submit;
+  HTMLFormElement.prototype.submit=function(){
+    if(String(this.action).includes("docs.google.com/forms")){
+      const payload={action:this.action,target:this.target||"practiceRecoveryTarget",values:{}};
+      new FormData(this).forEach((v,k)=>payload.values[k]=String(v));
+      localStorage.setItem(pendingKey,JSON.stringify(payload));
+      submittedNow=true;
+      if(status())status().textContent="Sending grade to Google Forms… Keep this page open for a few seconds.";
+      if(retry())retry().disabled=false;
+    }
+    return nativeSubmit.call(this);
+  };
+  function send(payload){
+    let frame=document.querySelector('iframe[name="'+payload.target+'"]');
+    if(!frame){frame=document.createElement("iframe");frame.name=payload.target;frame.hidden=true;document.body.append(frame)}
+    const form=document.createElement("form");form.method="POST";form.action=payload.action;form.target=payload.target;form.hidden=true;
+    Object.entries(payload.values).forEach(([name,value])=>{const i=document.createElement("input");i.name=name;i.value=value;form.append(i)});
+    document.body.append(form);submittedNow=true;nativeSubmit.call(form);setTimeout(()=>form.remove(),1000);
+    if(status())status().textContent="Grade sent again. Keep this page open for five seconds, then check the score report.";
+  }
+  document.addEventListener("DOMContentLoaded",()=>{
+    restoreDraft();
+    const pending=localStorage.getItem(pendingKey);
+    if(status())status().textContent=pending?"A saved grade is available if you need to submit it again.":"Typed work will save automatically on this device.";
+    document.querySelectorAll("iframe[name]").forEach(frame=>frame.addEventListener("load",()=>{
+      if(!submittedNow)return;submittedNow=false;
+      if(status())status().textContent="Google Forms responded. Your grade was sent; use Submit Grade Again if it is missing from the report.";
+    }));
+    retry().onclick=()=>{
+      let p;try{p=JSON.parse(localStorage.getItem(pendingKey)||"null")}catch(e){}
+      if(!p){status().textContent="No saved grade is available yet. Finish the lab and click Submit My Results first.";return}
+      retry().disabled=true;send(p);setTimeout(()=>retry().disabled=false,5000);
+    };
+    document.getElementById("clearSavedPractice").onclick=()=>{
+      if(!confirm("Clear saved work and the saved grade from this computer?"))return;
+      localStorage.removeItem(draftKey);localStorage.removeItem(pendingKey);
+      status().textContent="Saved work was cleared. Refresh the page to start over.";
+    };
+  });
+})();
+</script>
+</body>\n</html>`;
 const starterCSS=`h1 {\n  \n}\n\np {\n  \n}`;
 function resetCreate(){$('htmlCode').value=starterHTML;$('cssCode').value=starterCSS;$('preview').srcdoc='';$('createFeedback').className='feedback';$('submitBox').classList.add('hidden')}resetCreate();$('resetCreate').onclick=resetCreate;function showPreview(){const html=$('htmlCode').value,css=$('cssCode').value,styled=html.replace(/<link[^>]*style\.css[^>]*>/i,`<style>${css}</style>`);$('preview').srcdoc=styled}$('previewCode').onclick=showPreview;
 function declarations(block){return (block.match(/[\w-]+\s*:\s*[^;{}]+\s*;/g)||[]).length}function findRule(css,selector){const escaped=selector.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),m=css.match(new RegExp(`(?:^|})\\s*${escaped}\\s*\\{([^}]*)\\}`,'i'));return m?m[1]:''}$('checkCreate').onclick=()=>{const css=$('cssCode').value,h=findRule(css,'h1'),p=findRule(css,'p'),problems=[];if(!h)problems.push('an h1 rule');else if(declarations(h)<2)problems.push('at least two complete h1 declarations');if(!p)problems.push('a p rule');else if(declarations(p)<2)problems.push('at least two complete p declarations');if(problems.length){feedback('createFeedback',false,`Add or correct: ${problems.join(', ')}. Remember colons and semicolons.`);return}award('create',30,30);showPreview();feedback('createFeedback',true,'Your CSS contains complete h1 and p rules with at least two properties each. +30 points');showResults()};
