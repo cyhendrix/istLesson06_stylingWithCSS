@@ -110,8 +110,13 @@ updateScore();
   const status=()=>document.getElementById("practiceRecoveryStatus");
   const retry=()=>document.getElementById("retrySavedGrade");
   let submittedNow=false;
+  function safeField(el){
+    return el.type!=="hidden" &&
+      !/^(debugAnswer|repairInput|targetAnswer|debugInput)$/i.test(el.id) &&
+      !el.closest("#debugCard,#identifyCard,#qbox");
+  }
   function fields(){
-    return [...document.querySelectorAll("input[id],select[id],textarea[id]")].filter(el=>el.type!=="hidden");
+    return [...document.querySelectorAll("input[id],select[id],textarea[id]")].filter(safeField);
   }
   function saveDraft(){
     const data={};
@@ -123,7 +128,7 @@ updateScore();
   }
   function restoreDraft(root=document){
     let data={};try{data=JSON.parse(localStorage.getItem(draftKey)||"{}")}catch(e){}
-    [...root.querySelectorAll("input[id],select[id],textarea[id]")].forEach(el=>{
+    [...root.querySelectorAll("input[id],select[id],textarea[id]")].filter(safeField).forEach(el=>{
       const v=data[el.id];if(!v)return;
       if(el.type==="radio"||el.type==="checkbox") el.checked=!!v.checked;
       else if(!el.value||el.tagName==="TEXTAREA") el.value=v.value??"";
