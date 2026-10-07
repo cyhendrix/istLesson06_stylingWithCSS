@@ -98,6 +98,7 @@ updateScore();
   <p>Your name, class period, and typed answers save automatically on this computer and browser.</p>
   <p>If a submitted grade does not appear in the score report, click <strong>Submit Grade Again</strong>.</p>
   <div class="recovery-buttons">
+    <button id="savePracticeProgress" type="button">Save My Progress</button>
     <button id="retrySavedGrade" type="button">Submit Grade Again</button>
     <button id="clearSavedPractice" class="secondary" type="button">Clear Saved Work</button>
   </div>
@@ -254,6 +255,17 @@ updateScore();
   }
   document.addEventListener("DOMContentLoaded",()=>{
     restoreDraft();
+    const saveButton=document.getElementById("savePracticeProgress");
+    saveButton.onclick=()=>{
+      try{
+        saveDraft();
+        if(typeof saveLabProgress==="function")saveLabProgress();
+        else if(typeof captureLabProgress==="function")captureLabProgress();
+        status().textContent="Progress saved! You may close this tab and return later on this same computer and browser.";
+      }catch(e){
+        status().textContent="Progress could not be saved. Please keep this tab open and tell your teacher.";
+      }
+    };
     restoreLabProgress();
     restoreDraft();
     const pending=localStorage.getItem(pendingKey);
