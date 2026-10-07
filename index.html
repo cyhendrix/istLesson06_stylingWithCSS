@@ -106,7 +106,7 @@ updateScore();
 <script id="practiceRecoveryScript">
 (function(){
   const baseKey="istPractice:"+location.pathname;
-  const draftKey=baseKey+":draft", pendingKey=baseKey+":pending";
+  const draftKey=baseKey+":draft", pendingKey=baseKey+":pending", progressKey=baseKey+":labState";
   const status=()=>document.getElementById("practiceRecoveryStatus");
   const retry=()=>document.getElementById("retrySavedGrade");
   let submittedNow=false;
@@ -136,10 +136,85 @@ updateScore();
   }
   document.addEventListener("input",saveDraft);
   document.addEventListener("change",saveDraft);
+  document.addEventListener("click",()=>setTimeout(captureLabProgress,0));
+  document.addEventListener("input",()=>setTimeout(captureLabProgress,0));
+  document.addEventListener("change",()=>setTimeout(captureLabProgress,0));
+  window.addEventListener("beforeunload",captureLabProgress);
   const observer=new MutationObserver(list=>list.forEach(m=>m.addedNodes.forEach(n=>{
     if(n.nodeType===1)restoreDraft(n);
   })));
   observer.observe(document.documentElement,{childList:true,subtree:true});
+
+  function captureLabProgress(){
+    const state={
+      activePanel:(document.querySelector(".panel.active")||{}).id||"",
+      visibility:{},
+      buttons:{},
+      numbers:{},
+      arrays:{},
+      objects:{},
+      sets:{},
+      buildSlots:[...document.querySelectorAll(".slot")].map(s=>s.dataset.code||"")
+    };
+    document.querySelectorAll("[id]").forEach(el=>state.visibility[el.id]=el.classList.contains("hidden"));
+    document.querySelectorAll("button[id]").forEach(b=>state.buttons[b.id]={disabled:b.disabled,text:b.textContent,hidden:b.classList.contains("hidden")});
+    try{if(typeof scores!=="undefined")state.scores={...scores}}catch(e){}
+    try{if(typeof activityScores!=="undefined")state.activityScores={...activityScores}}catch(e){}
+    try{if(typeof S!=="undefined")state.S={...S}}catch(e){}
+    const numberNames=["reviewIndex","identifyPos","identifyCorrect","debugPos","bugPos","qi","targetIndex"];
+    numberNames.forEach(name=>{try{const value=eval(name);if(typeof value==="number")state.numbers[name]=value}catch(e){}});
+    const arrayNames=["reviewAnswers","targetAnswers","qa","pa","da","identifyOrder","debugOrder","bugOrder"];
+    arrayNames.forEach(name=>{try{const value=eval(name);if(Array.isArray(value))state.arrays[name]=[...value]}catch(e){}});
+    const objectNames=["debugAnswers","missedMap","miss"];
+    objectNames.forEach(name=>{try{const value=eval(name);if(value&&typeof value==="object"&&!Array.isArray(value))state.objects[name]={...value}}catch(e){}});
+    const setNames=["earnedPractice","debugEarned"];
+    setNames.forEach(name=>{try{const value=eval(name);if(value instanceof Set)state.sets[name]=[...value]}catch(e){}});
+    localStorage.setItem(progressKey,JSON.stringify(state));
+  }
+  function restoreLabProgress(){
+    let state;try{state=JSON.parse(localStorage.getItem(progressKey)||"null")}catch(e){}
+    if(!state)return false;
+    try{if(state.scores&&typeof scores!=="undefined")Object.assign(scores,state.scores)}catch(e){}
+    try{if(state.activityScores&&typeof activityScores!=="undefined")Object.assign(activityScores,state.activityScores)}catch(e){}
+    try{if(state.S&&typeof S!=="undefined")Object.assign(S,state.S)}catch(e){}
+    Object.entries(state.numbers||{}).forEach(([name,value])=>{try{eval(name+"="+Number(value))}catch(e){}});
+    Object.entries(state.arrays||{}).forEach(([name,value])=>{try{const target=eval(name);if(Array.isArray(target)){target.splice(0,target.length,...value)}}catch(e){}});
+    Object.entries(state.objects||{}).forEach(([name,value])=>{try{const target=eval(name);if(target&&typeof target==="object"){Object.keys(target).forEach(k=>delete target[k]);Object.assign(target,value)}}catch(e){}});
+    Object.entries(state.sets||{}).forEach(([name,value])=>{try{const target=eval(name);if(target instanceof Set){target.clear();value.forEach(v=>target.add(v))}}catch(e){}});
+    try{if(typeof updateScore==="function")updateScore()}catch(e){}
+    try{if(typeof upd==="function")upd()}catch(e){}
+    if(Array.isArray(state.buildSlots)&&state.buildSlots.length){
+      const slots=[...document.querySelectorAll(".slot")];
+      state.buildSlots.forEach((code,i)=>{try{if(code&&slots[i]&&typeof place==="function")place(code,slots[i])}catch(e){}});
+    }
+    ["labActivities","activities"].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove("hidden")});
+    try{
+      if(state.activePanel==="review"){
+        if(typeof renderReview==="function")renderReview();
+        else if(typeof rq==="function")rq();
+      }else if(state.activePanel==="target"&&typeof renderTarget==="function")renderTarget();
+      else if(state.activePanel==="identify"&&typeof showIdentify==="function")showIdentify();
+      else if(state.activePanel==="debug"){
+        if(typeof showBug==="function")showBug();
+        else if(typeof showDebug==="function")showDebug();
+      }
+    }catch(e){}
+    restoreDraft();
+    Object.entries(state.visibility||{}).forEach(([id,hidden])=>{const el=document.getElementById(id);if(el)el.classList.toggle("hidden",!!hidden)});
+    Object.entries(state.buttons||{}).forEach(([id,value])=>{const b=document.getElementById(id);if(b){b.disabled=!!value.disabled;b.textContent=value.text;b.classList.toggle("hidden",!!value.hidden)}});
+    if(state.activePanel){
+      try{
+        if(typeof openPanel==="function")openPanel(state.activePanel);
+        else if(typeof show==="function")show(state.activePanel);
+        else{
+          document.querySelectorAll(".panel").forEach(x=>x.classList.toggle("active",x.id===state.activePanel));
+          document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.panel===state.activePanel||x.dataset.p===state.activePanel));
+        }
+      }catch(e){}
+    }
+    return true;
+  }
+
   const nativeSubmit=HTMLFormElement.prototype.submit;
   HTMLFormElement.prototype.submit=function(){
     if(String(this.action).includes("docs.google.com/forms")){
@@ -162,6 +237,8 @@ updateScore();
   }
   document.addEventListener("DOMContentLoaded",()=>{
     restoreDraft();
+    restoreLabProgress();
+    restoreDraft();
     const pending=localStorage.getItem(pendingKey);
     if(status())status().textContent=pending?"A saved grade is available if you need to submit it again.":"Typed work will save automatically on this device.";
     document.querySelectorAll("iframe[name]").forEach(frame=>frame.addEventListener("load",()=>{
@@ -175,7 +252,7 @@ updateScore();
     };
     document.getElementById("clearSavedPractice").onclick=()=>{
       if(!confirm("Clear saved work and the saved grade from this computer?"))return;
-      localStorage.removeItem(draftKey);localStorage.removeItem(pendingKey);
+      localStorage.removeItem(draftKey);localStorage.removeItem(pendingKey);localStorage.removeItem(progressKey);
       status().textContent="Saved work was cleared. Refresh the page to start over.";
     };
   });
