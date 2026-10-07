@@ -139,6 +139,8 @@ updateScore();
   document.addEventListener("click",()=>setTimeout(captureLabProgress,0));
   document.addEventListener("input",()=>setTimeout(captureLabProgress,0));
   document.addEventListener("change",()=>setTimeout(captureLabProgress,0));
+  document.addEventListener("drop",()=>setTimeout(captureLabProgress,0));
+  document.addEventListener("dragend",()=>setTimeout(captureLabProgress,0));
   window.addEventListener("beforeunload",captureLabProgress);
   const observer=new MutationObserver(list=>list.forEach(m=>m.addedNodes.forEach(n=>{
     if(n.nodeType===1)restoreDraft(n);
@@ -161,7 +163,7 @@ updateScore();
     try{if(typeof scores!=="undefined")state.scores={...scores}}catch(e){}
     try{if(typeof activityScores!=="undefined")state.activityScores={...activityScores}}catch(e){}
     try{if(typeof S!=="undefined")state.S={...S}}catch(e){}
-    const numberNames=["reviewIndex","identifyPos","identifyCorrect","debugPos","bugPos","qi","targetIndex"];
+    const numberNames=["reviewIndex","identifyPos","identifyCorrect","debugPos","bugPos","qi","targetIndex","listRound"];
     numberNames.forEach(name=>{try{const value=eval(name);if(typeof value==="number")state.numbers[name]=value}catch(e){}});
     const arrayNames=["reviewAnswers","targetAnswers","qa","pa","da","identifyOrder","debugOrder","bugOrder"];
     arrayNames.forEach(name=>{try{const value=eval(name);if(Array.isArray(value))state.arrays[name]=[...value]}catch(e){}});
@@ -183,9 +185,24 @@ updateScore();
     Object.entries(state.sets||{}).forEach(([name,value])=>{try{const target=eval(name);if(target instanceof Set){target.clear();value.forEach(v=>target.add(v))}}catch(e){}});
     try{if(typeof updateScore==="function")updateScore()}catch(e){}
     try{if(typeof upd==="function")upd()}catch(e){}
+    try{if(Object.prototype.hasOwnProperty.call(state.numbers||{},"listRound")&&typeof startList==="function")startList()}catch(e){}
     if(Array.isArray(state.buildSlots)&&state.buildSlots.length){
       const slots=[...document.querySelectorAll(".slot")];
-      state.buildSlots.forEach((code,i)=>{try{if(code&&slots[i]&&typeof place==="function")place(code,slots[i])}catch(e){}});
+      state.buildSlots.forEach((code,i)=>{
+        try{
+          if(!code||!slots[i])return;
+          if(typeof place==="function")place(code,slots[i]);
+          else{
+            const slot=slots[i];
+            slot.dataset.code=code;
+            slot.textContent=code;
+            slot.classList.add("filled");
+            slot.draggable=true;
+            const tile=[...document.querySelectorAll(".tile")].find(t=>t.dataset.code===code&&!t.classList.contains("used"));
+            if(tile)tile.classList.add("used");
+          }
+        }catch(e){}
+      });
     }
     ["labActivities","activities"].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove("hidden")});
     try{
