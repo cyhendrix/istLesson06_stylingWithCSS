@@ -100,7 +100,7 @@ updateScore();
   <div class="recovery-buttons">
     <button id="savePracticeProgress" type="button">Save My Progress</button>
     <button id="retrySavedGrade" type="button">Submit Grade Again</button>
-    <button id="clearSavedPractice" class="secondary" type="button">Clear Saved Work</button>
+    <button id="clearSavedPractice" class="secondary" type="button">Reset Entire Lab</button>
   </div>
   <p id="practiceRecoveryStatus" class="recovery-status" role="status" aria-live="polite"></p>
 </section>
@@ -280,9 +280,10 @@ updateScore();
       retry().disabled=true;send(p);setTimeout(()=>retry().disabled=false,5000);
     };
     document.getElementById("clearSavedPractice").onclick=()=>{
-      if(!confirm("Clear saved work and the saved grade from this computer?"))return;
+      if(!confirm("Reset the entire lab? This will remove every answer, score, attempt, and saved grade from this browser so you can begin a new attempt. Grades already submitted to your teacher will not be deleted."))return;
       localStorage.removeItem(draftKey);localStorage.removeItem(pendingKey);localStorage.removeItem(progressKey);
-      status().textContent="Saved work was cleared. Refresh the page to start over.";
+      status().textContent="The lab has been reset. Starting a new attempt…";
+      location.reload();
     };
   });
 })();
